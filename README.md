@@ -4,4 +4,4 @@
 cargo run
 ```
 
-Then visit `http://localhost:8000/linkedin/careers/`
+Then visit `http://localhost:8000/github/careers/`

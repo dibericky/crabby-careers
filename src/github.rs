@@ -1,7 +1,7 @@
 use fancy_regex::{Regex};
 use rocket::serde::{Serialize};
 
-pub struct LinkedIn;
+pub struct GitHub;
 
 
 #[derive(Debug, Clone)]
@@ -9,10 +9,10 @@ pub struct ApiError;
 
 pub type Result<T> = std::result::Result<T, ApiError>;
 
-const LINKEDIN_CAREERS_URL : &str = "https://github.com/about/careers";
+const GITHUB_CAREERS_URL : &str = "https://github.com/about/careers";
 
 async fn fetch_careers () -> Result<String> {
-    reqwest::get(LINKEDIN_CAREERS_URL)
+    reqwest::get(GITHUB_CAREERS_URL)
         .await
         .map_err(|_| ApiError)
         ?.text().await
@@ -76,7 +76,7 @@ fn get_jobs (html: &str) -> Vec<JobCareer> {
     urls
 }
 
-impl LinkedIn {
+impl GitHub {
     pub async fn careers () -> Result<Vec<JobCareer>> {
         let response = fetch_careers().await?;
         Ok(get_jobs(&response))
