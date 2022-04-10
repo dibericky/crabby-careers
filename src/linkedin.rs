@@ -1,4 +1,4 @@
-use fancy_regex::Regex;
+use fancy_regex::{Regex};
 use rocket::serde::{Serialize};
 
 pub struct LinkedIn;
@@ -8,10 +8,6 @@ pub struct LinkedIn;
 pub struct ApiError;
 
 pub type Result<T> = std::result::Result<T, ApiError>;
-
-// Define our error types. These may be customized for our error handling cases.
-// Now we will be able to write our own errors, defer to an underlying error
-// implementation, or do something in between.
 
 const LINKEDIN_CAREERS_URL : &str = "https://github.com/about/careers";
 
@@ -29,38 +25,54 @@ pub struct JobCareer {
     pub name: String
 }
 
-fn get_jobs (html: &str) -> Vec<JobCareer> {
+fn get_html_section_with_jobs (html: &str) -> &str {
     let re = Regex::new(r"Candidate Privacy Policy(?P<jobs>(.|\n)*)Internships").unwrap();
     let cap = re.captures(&html).unwrap().unwrap();
-    let jobs_matched = cap.name("jobs").unwrap().as_str();
+    cap.name("jobs").unwrap().as_str()
+}
 
+fn get_parts_with_urls (section: &str) -> Vec<&str> {
     let re_url = Regex::new(r"<a href=(.|\n)+?(?=a>)").unwrap();
 
-    let splitted = jobs_matched
-        .split("Details js-details-container")
+    let filtered : Vec<&str> = section.split("Details js-details-container")
         .filter(|j| j.contains("https://boards.greenhouse.io/github"))
-        .map(|j| re_url.captures_iter(j));
+        .collect();
+    let list_of_captures = filtered
+        .into_iter()
+        .flat_map(|el| re_url.captures_iter(el));
+    let list_of_jobs = list_of_captures
+        .flat_map(|el| el
+                .unwrap()
+                .iter()
+                .map(|el2| el2
+                    .unwrap()
+                    .as_str()
+                ).collect::<Vec<&str>>())
+        .collect::<Vec<&str>>();
+    
+        list_of_jobs
+}
 
-    let mut jobs : Vec<String> = Vec::new();
-    for matches in splitted {
-        for matched in matches {
-            let elem = matched.unwrap().iter().map(|el| el.unwrap().as_str()).collect();
-            jobs.push(elem);
-        }
-    }
+fn get_jobs (html: &str) -> Vec<JobCareer> {
+    let section_with_jobs = get_html_section_with_jobs(html);
+
+    let jobs = get_parts_with_urls(section_with_jobs);
+
     let str_regex = "<a href=\"(?P<url>[^\\d]+\\d+)\">(.|\n)+<span>(?P<jobName>[a-zA-Z\\-\\s]+)<\\/span>";
     let re_url_job_name = Regex::new(str_regex).unwrap();
-    // let urls = 
-    let mut urls : Vec<JobCareer> = Vec::new();
-    for job in jobs {
-        if let Some(captured) = re_url_job_name.captures(&job).unwrap() {
-            let job_career = JobCareer {
-                url: captured.name("url").unwrap().as_str().to_owned(),
-                name: captured.name("jobName").unwrap().as_str().to_owned(),
-            };
-            urls.push(job_career)
-        }
-    }
+
+    let urls = jobs
+        .into_iter()
+        .filter_map(|url| {
+            match re_url_job_name.captures(url).unwrap() {
+                Some(captured) => Some(JobCareer {
+                    url: captured.name("url").unwrap().as_str().to_owned(),
+                    name: captured.name("jobName").unwrap().as_str().to_owned(),
+                }),
+                None => None
+            }
+        })
+        .collect::<Vec<JobCareer>>();
     urls
 }
 
